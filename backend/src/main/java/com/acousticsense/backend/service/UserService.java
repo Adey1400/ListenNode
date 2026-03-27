@@ -73,7 +73,10 @@ public class UserService {
         //Creating folder if doesnt exist
         String uploadDir="uploads/avatars/";
         File directory = new File(uploadDir);
-
+        
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
         //generating a safe and unique file name 
         String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
         Path filePath = Paths.get(uploadDir + fileName);
@@ -82,7 +85,7 @@ public class UserService {
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
          
         //Updating userProfile picture for frontend to read it
-        String fileUrl = "https://localhost:8080/uploads/avatars"+fileName;
+        String fileUrl = "https://localhost:8080/uploads/avatars/"+fileName;
         user.setProfilePicture(fileUrl);
         userRepository.save(user);
         return getMyProfile();

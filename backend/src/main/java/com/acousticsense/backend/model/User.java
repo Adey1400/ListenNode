@@ -36,7 +36,10 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private String password;
-
+    
+    @Column(name = "profile_picture")
+    private String profilePicture;
+    
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // We aren't using roles, so we just give everyone a generic "USER" authority to

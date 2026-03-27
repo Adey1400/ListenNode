@@ -3,7 +3,8 @@ package com.acousticsense.backend.service;
 import com.acousticsense.backend.model.AuthResponse;
 import com.acousticsense.backend.model.User;
 import com.acousticsense.backend.repo.UserRepo;
-
+import com.acousticsense.backend.DTO.AuthRequest;
+import com.acousticsense.backend.DTO.RegisterRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
