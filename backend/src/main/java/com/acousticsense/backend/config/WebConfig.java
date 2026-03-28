@@ -11,5 +11,9 @@ public class WebConfig implements WebMvcConfigurer {
         // This allows React to access images via http://localhost:8080/uploads/...
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:uploads/");
+           
+        //Allowing React to play back recorded audio files
+        registry.addResourceHandler("/uploads/recordings/**")
+                .addResourceLocations("file:uploads/recordings/");
     }
 }
