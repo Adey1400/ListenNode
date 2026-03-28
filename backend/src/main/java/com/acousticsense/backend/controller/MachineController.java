@@ -5,10 +5,8 @@ import com.acousticsense.backend.model.MachineLog;
 import com.acousticsense.backend.repo.MachineLogRepo;
 import com.acousticsense.backend.repo.MachineRepo;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
@@ -18,7 +16,7 @@ public class MachineController {
 
     private final MachineRepo machineRepo;
     private final MachineLogRepo machineLogRepo;
-    
+
     @PostMapping
     public Machine createMachine(@RequestBody Machine machine) {
         return machineRepo.save(machine);
