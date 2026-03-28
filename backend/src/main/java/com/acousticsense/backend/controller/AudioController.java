@@ -34,4 +34,14 @@ public class AudioController {
         List<MachineLog> latestLogs = machineLogRepo.findTop20ByMachineIdOrderByTimestampDesc(machineId);
         return ResponseEntity.ok(latestLogs);
     }
+    //to trigger the deletion and cleanup
+    @DeleteMapping("/logs/{logId}")
+    public ResponseEntity<?> deleteAudioLog(@PathVariable Long logId) {
+        try {
+            audioService.deleteMachineLog(logId);
+            return ResponseEntity.ok().body("Machine log and associated audio file successfully deleted.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error deleting log: " + e.getMessage());
+        }
+    }
 }

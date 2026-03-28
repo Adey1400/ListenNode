@@ -6,6 +6,9 @@ import com.acousticsense.backend.repo.MachineLogRepo;
 import com.acousticsense.backend.repo.MachineRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -20,42 +23,47 @@ public class SimulationService {
 
     private final MachineRepo machineRepo;
     private final MachineLogRepo machineLogRepo;
+    private final SimpMessagingTemplate messagingTemplate; // <-- Inject the Messaging Template
     private final Random random = new Random();
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
-@Scheduled(fixedRate = 20000)
-public void generateFakeData() {
-    List<Machine> machines = machineRepo.findAll();
-    
-    if (machines.isEmpty()) {
-        return;
+    @Scheduled(fixedRate = 20000)
+    public void generateFakeData() {
+        List<Machine> machines = machineRepo.findAll();
+        
+        if (machines.isEmpty()) {
+            return;
+        }
+
+        for (Machine machine : machines) {
+            double score = 60 + (random.nextDouble() * 40); 
+            String result = determineResult(score);
+
+            //  Creating and Saving the Log
+            MachineLog logEntry = MachineLog.builder()
+                    .machine(machine)
+                    .aiResult(result)
+                    .confidenceScore(0.85 + (random.nextDouble() * 0.1))
+                    .timestamp(LocalDateTime.now())
+                    .audioFilePath(baseUrl+"/uploads/recordings/sample_simulated.wav")
+                    .build();
+            machineLogRepo.save(logEntry);
+            
+            //  Updating the Machine Status
+            String newStatus = (score < 75) ? "WARNING" : "HEALTHY";
+            machine.setStatus(newStatus);
+            
+            // FORCING the update to the machines table
+            machineRepo.saveAndFlush(machine); 
+            
+            // BROADCASTING TO THE FRONTEND 
+            // We send it to a specific topic for this machine ID
+            messagingTemplate.convertAndSend("/topic/machine-alerts/" + machine.getId(), logEntry);
+            
+            System.out.println("🔄 Updated " + machine.getName() + " to " + newStatus + " (Score: " + String.format("%.2f", score) + ")");
+        }
     }
-
-    for (Machine machine : machines) {
-        // Generate a random score
-        double score = 60 + (random.nextDouble() * 40); 
-        String result = determineResult(score);
-
-        // 1. Create and Save the Log
-        MachineLog logEntry = MachineLog.builder()
-                .machine(machine)
-                .aiResult(result)
-                .confidenceScore(0.85 + (random.nextDouble() * 0.1))
-                .timestamp(LocalDateTime.now())
-                .audioFilePath("http://localhost:8080/uploads/recordings/sample_simulated.wav")
-                .build();
-        machineLogRepo.save(logEntry);
-        
-        // 2. Update the Machine Status
-        // Logic: if score < 75, it's a WARNING. 
-        String newStatus = (score < 75) ? "WARNING" : "HEALTHY";
-        machine.setStatus(newStatus);
-        
-        // 3. FORCE the update to the machines table
-        machineRepo.saveAndFlush(machine); 
-        
-        System.out.println("🔄 Updated " + machine.getName() + " to " + newStatus + " (Score: " + String.format("%.2f", score) + ")");
-    }
-}
 
     private String determineResult(double score) {
         if (score > 90) return "Normal Operating Condition";

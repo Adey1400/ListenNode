@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ListenNode WebSocket Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; padding: 20px;">
+    <h2>🎧 ListenNode Live Feed</h2>
+    <div id="messages">Waiting for machine data...</div>
+
+    <script>
+        // 1. Connect to the endpoint you defined in WebSocketConfig
+        var socket = new SockJS('http://localhost:8080/ws/machine-status');
+        var stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            document.getElementById('messages').innerHTML = "Connected! Waiting for next simulation tick...<br><br>";
+
+            // 2. Subscribe to Machine ID 1 (Make sure you have a machine with ID 1 in your DB!)
+            stompClient.subscribe('/topic/machine-alerts/1', function (message) {
+                
+                // 3. Parse the JSON and display it
+                var log = JSON.parse(message.body);
+                var formattedAlert = `
+                    <div style="border: 1px solid #00ff00; padding: 10px; margin-top: 10px;">
+                        <strong>Status:</strong> ${log.aiResult} <br>
+                        <strong>Confidence:</strong> ${(log.confidenceScore * 100).toFixed(1)}% <br>
+                        <strong>Time:</strong> ${log.timestamp}
+                    </div>
+                `;
+                
+                // Append new messages to the top
+                var messageDiv = document.getElementById('messages');
+                messageDiv.innerHTML = formattedAlert + messageDiv.innerHTML;
+            });
+        });
+    </script>
+</body>
+</html>

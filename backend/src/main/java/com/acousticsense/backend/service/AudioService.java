@@ -5,6 +5,9 @@ import com.acousticsense.backend.model.MachineLog;
 import com.acousticsense.backend.repo.MachineLogRepo;
 import com.acousticsense.backend.repo.MachineRepo;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,10 +22,14 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AudioService {
 
     private final MachineRepo machineRepo;
     private final MachineLogRepo machineLogRepo;
+    
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
     public MachineLog saveAudioAndLog(Long machineId, MultipartFile file) throws IOException {
         Machine machine = machineRepo.findById(machineId)
@@ -43,11 +50,36 @@ public class AudioService {
         // 3. Create the Database Entry
         MachineLog log = MachineLog.builder()
                 .machine(machine)
-                .audioFilePath("http://localhost:8080/" + uploadDir + fileName)
+                .audioFilePath(baseUrl+"/" + uploadDir + fileName)
                 .timestamp(LocalDateTime.now())
                 .aiResult("PENDING") // This will be updated once the Senior's AI replies
                 .build();
 
         return machineLogRepo.save(log);
     }
+    public void deleteMachineLog(Long logId) {
+        MachineLog logEntry = machineLogRepo.findById(logId)
+                .orElseThrow(() -> new RuntimeException("Machine Log not found"));
+
+        // 1. CLEANUP: Delete the physical .wav file from the hard drive first
+        deletePhysicalAudioFile(logEntry.getAudioFilePath());
+
+        // 2. Delete the record from the database
+        machineLogRepo.delete(logEntry);
+    }
+    private void deletePhysicalAudioFile(String fileUrl) {
+        if (fileUrl != null && fileUrl.contains("uploads/recordings/")) {
+            try {
+                // Strip the http://localhost:8080 to get the exact folder path
+                String relativePath = fileUrl.substring(fileUrl.indexOf("uploads/recordings/"));
+                Path filePath = Paths.get(relativePath);
+                
+                // Only deletes if it exists, preventing the server from crashing
+                Files.deleteIfExists(filePath);
+                log.info("Successfully wiped audio file from storage: " + relativePath);
+            } catch (Exception e) {
+                log.error("Failed to delete orphaned audio file: " + e.getMessage());
+            }
+        }
+}
 }
