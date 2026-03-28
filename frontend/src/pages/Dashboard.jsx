@@ -1,17 +1,20 @@
 import { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, LayoutDashboard, History, Settings, Bell, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Activity, LayoutDashboard, History, Settings, Bell, AlertTriangle, CheckCircle, LogOut } from 'lucide-react';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
-import { toast } from 'react-toastify';
+import { Link, useNavigate } from 'react-router-dom'; // <-- Added for routing
 import { AuthContext } from '../context/AuthContext';
 
 export default function Dashboard() {
-  const { user } = useContext(AuthContext);
+
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  
   const [activeTab, setActiveTab] = useState('live');
   const [liveStatus, setLiveStatus] = useState(null);
   const [logs, setLogs] = useState([]);
-  const machineId = 1; // Hardcoded to match our Spring Boot SimulationService
+  const machineId = 1; 
 
   useEffect(() => {
     const client = new Client({
@@ -21,16 +24,10 @@ export default function Dashboard() {
         
         client.subscribe(`/topic/machine-alerts/${machineId}`, (message) => {
           const newLog = JSON.parse(message.body);
-          
           setLiveStatus(newLog);
           setLogs((prev) => [newLog, ...prev]);
-
-          // Trigger a Toastify alert if the AI detects a fault (Score < 75)
-          if (newLog.confidenceScore < 0.75 || newLog.aiResult.includes('Wear') || newLog.aiResult.includes('Friction')) {
-            toast.error(`Fault Detected: ${newLog.aiResult}`, {
-              icon: <AlertTriangle className="text-rose-500 w-5 h-5" />
-            });
-          }
+          
+          // REMOVED: The irritating 20-second Toastify alert is gone!
         });
       },
     });
@@ -39,7 +36,14 @@ export default function Dashboard() {
     return () => client.deactivate();
   }, []);
 
-  // Framer Motion variants for the slide-deck effect
+  // Handle Logout Execution
+  const handleLogout = () => {
+    navigate('/');
+    setTimeout(() => {
+      logout();
+    }, 100);
+  };
+
   const slideVariants = {
     hidden: { opacity: 0, x: 20 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: 'easeOut' } },
@@ -56,14 +60,16 @@ export default function Dashboard() {
       {/* Glassmorphic Sidebar */}
       <aside className="w-64 bg-white/40 backdrop-blur-2xl border-r border-white/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] flex flex-col z-10 relative">
         <div className="p-6 border-b border-white/60">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="bg-white/60 p-2 rounded-xl border border-white/80 shadow-sm">
+          
+
+          <Link to="/" className="flex items-center gap-2 mb-2 group cursor-pointer">
+            <div className="bg-white/60 p-2 rounded-xl border border-white/80 shadow-sm group-hover:shadow-emerald-500/20 transition-all">
               <Activity className="text-emerald-500 w-5 h-5" />
             </div>
             <span className="text-xl font-light text-slate-800 tracking-widest">
               Listen<span className="font-bold text-emerald-500">Node</span>
             </span>
-          </div>
+          </Link>
           <p className="text-xs text-slate-500 font-medium">Command Center v1.0</p>
         </div>
 
@@ -88,7 +94,8 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        <div className="p-6 border-t border-white/60">
+        {/* FIXED: Added Logout Button next to User Profile */}
+        <div className="p-6 border-t border-white/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.firstName}&background=10b981&color=fff`} alt="User" className="w-10 h-10 rounded-full shadow-sm border border-white/80" />
             <div>
@@ -98,6 +105,14 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
+          
+          <button 
+            onClick={handleLogout}
+            title="Terminate Session"
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </aside>
 

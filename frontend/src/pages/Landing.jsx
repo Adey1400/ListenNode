@@ -1,9 +1,15 @@
+import { useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Shield, Database, Cpu, Wifi, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer'; // <-- Added Footer import
+import { AuthContext } from '../context/AuthContext'; // <-- Added Context import
 
 export default function Landing() {
+  // Pull the user from context to conditionally render the buttons
+  const { user } = useContext(AuthContext);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
@@ -15,15 +21,15 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 font-sans relative overflow-hidden flex flex-col">
       <Navbar />
 
       {/* Background Orbs */}
-      <motion.div animate={{ y: [0, -40, 0], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="fixed top-0 left-0 w-[40rem] h-[40rem] bg-emerald-200/50 rounded-full blur-[120px] -z-10" />
-      <motion.div animate={{ y:0, opacity: [0.2, 0.4, 0.2] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="fixed bottom-0 right-0 w-[50rem] h-[50rem] bg-blue-200/40 rounded-full blur-[150px] -z-10" />
+      <motion.div animate={{ y: [0, -40, 0], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute top-0 left-0 w-[40rem] h-[40rem] bg-emerald-200/50 rounded-full blur-[120px] -z-10" />
+      <motion.div animate={{ y:0, opacity: [0.2, 0.4, 0.2] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute bottom-0 right-0 w-[50rem] h-[50rem] bg-blue-200/40 rounded-full blur-[150px] -z-10" />
 
       {/* Hero Section */}
-      <main className="pt-40 pb-20 px-6 max-w-7xl mx-auto">
+      <main className="flex-1 pt-40 pb-20 px-6 max-w-7xl mx-auto z-10">
         <motion.div 
           variants={containerVariants} initial="hidden" animate="visible"
           className="text-center max-w-3xl mx-auto mb-24"
@@ -46,16 +52,19 @@ export default function Landing() {
           </motion.p>
           
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/login">
+            {/* SMART BUTTON: Swaps functionality based on login status */}
+            <Link to={user ? "/dashboard" : "/login"}>
               <button className="px-8 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1 transition-all">
-                Access Command Center
+                {user ? "Enter Command Center" : "Access Command Center"}
               </button>
             </Link>
-            <a href="#architecture">
+            
+            {/* FIXED: Now routes to the actual Architecture page instead of scrolling */}
+            <Link to="/architecture">
               <button className="px-8 py-4 bg-white/60 backdrop-blur-md border border-white/80 text-slate-700 rounded-2xl font-semibold shadow-sm hover:bg-white/80 transition-all">
                 Explore Architecture
               </button>
-            </a>
+            </Link>
           </motion.div>
         </motion.div>
 
@@ -83,6 +92,9 @@ export default function Landing() {
         </motion.div>
 
       </main>
+
+      {/* Added the beautiful footer to the bottom */}
+      <Footer />
     </div>
   );
 }
