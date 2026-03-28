@@ -30,7 +30,7 @@ export default function DashboardLayout() {
         <div className="p-6 border-b border-white/60">
           <Link to="/" className="flex items-center gap-2 mb-2 group">
             <div className="bg-white/60 p-2 rounded-xl border border-white/80 shadow-sm"><Activity className="text-emerald-500 w-5 h-5" /></div>
-            <span className="text-xl font-light text-slate-800 tracking-widest">Listen<span className="font-bold text-emerald-500">Node</span></span>
+            <span className="text-xl font-light text-slate-800 tracking-widest">Roto<span className="font-bold text-emerald-500">Guard</span></span>
           </Link>
         </div>
 

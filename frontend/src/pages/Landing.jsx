@@ -49,7 +49,7 @@ export default function Landing() {
           </motion.h1>
           
           <motion.p variants={itemVariants} className="text-lg text-slate-500 mb-10 leading-relaxed max-w-2xl mx-auto">
-            ListenNode is a real-time IoT ecosystem designed to detect mechanical failures before they happen. We capture raw audio streams directly from industrial machines to categorize anomalies with sub-second latency.
+            RotoGuard is a real-time IoT ecosystem designed to detect mechanical failures before they happen. We capture raw audio streams directly from industrial machines to categorize anomalies with sub-second latency.
           </motion.p>
           
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -80,7 +80,7 @@ export default function Landing() {
             { icon: Database, title: "Historical Analytics", desc: "Persistent data logging in PostgreSQL allows managers to track acoustic degradation trends." },
             { icon: Activity, title: "Sudden Death Detection", desc: "Bypasses heavy AI processing for critical volume thresholds for instant offline alerting." },
             { icon: Cpu, title: "YAMNet AI Brain", desc: "Lightweight AI microservice utilizing TensorFlow to extract embeddings and classify health." },
-            { icon: Wifi, title: "ESP32 Edge Nodes", desc: "Hardware sitting on the physical machine, streaming raw I2S audio over the local network." }
+            { icon: Wifi, title: "ESP32 Edge Guards", desc: "Hardware sitting on the physical machine, streaming raw I2S audio over the local network." }
           ].map((feature, idx) => (
             <div key={idx} className="bg-white/40 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
               <div className="w-12 h-12 bg-white/60 rounded-2xl flex items-center justify-center mb-6 border border-white/80 group-hover:bg-emerald-50 transition-colors">

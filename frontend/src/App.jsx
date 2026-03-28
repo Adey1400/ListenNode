@@ -14,7 +14,7 @@ import DashboardLayout from './pages/Dashboard';
 import LiveFeed from './pages/LiveFeed';
 import AcousticHistory from './pages/AcousticHistory';
 import MachineConfig from './pages/MachineConfig';
-
+import FleetHealthMockup from './pages/FleetHealthMockup';
 // Make sure the "export default" is right here!
 export default function App() {
   return (
@@ -27,7 +27,7 @@ export default function App() {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
+          
           {/* Protected Dashboard Routes (Nested Layout) */}
           <Route 
             path="/dashboard" 
@@ -42,6 +42,7 @@ export default function App() {
             
             {/* The actual dashboard sub-pages */}
             <Route path="live" element={<LiveFeed />} />
+            {/* <Route path="live" element={<FleetHealthMockup />} /> */}
             <Route path="history" element={<AcousticHistory />} />
             <Route path="config" element={<MachineConfig />} />
           </Route>

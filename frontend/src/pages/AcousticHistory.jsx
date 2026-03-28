@@ -2,17 +2,23 @@ import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
+import { Activity } from 'lucide-react';
 
 export default function AcousticHistory() {
-  // 1. Safe initialization 
   const [logs, setLogs] = useState([]);
+  const [error, setError] = useState(null); // Added to show you exact security errors
   const machineId = 1;
 
   useEffect(() => {
-    // 2. Retrieve the token from local storage
-    const token = localStorage.getItem('token');
+    // Keep this aligned with AuthContext token key
+    const token = localStorage.getItem('listenNode_token') || localStorage.getItem('token');
+    
+    if (!token) {
+        setError("No authentication token found. Please log in again.");
+        return;
+    }
 
-    // 3. Attach the JWT Token to the fetch request headers
+    // Fetch the history with the JWT Token
     fetch(`http://localhost:8080/api/machines/${machineId}/logs`, {
       method: 'GET',
       headers: {
@@ -21,26 +27,23 @@ export default function AcousticHistory() {
       }
     })
       .then(res => {
+        if (res.status === 403) throw new Error("Session expired. Your database likely restarted. Please log out and log back in.");
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       })
       .then(data => {
-        // 4. Safety Check: Only update state if Spring Boot actually returned an array
-        if (Array.isArray(data)) {
-          setLogs(data);
-        }
+        if (Array.isArray(data)) setLogs(data);
       })
-      .catch(err => console.error("Failed to fetch history:", err));
+      .catch(err => setError(err.message));
 
-    // WebSocket Connection
+    // Connect WebSocket for Live Updates
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws/machine-status'),
       onConnect: () => {
         client.subscribe(`/topic/machine-alerts/${machineId}`, (message) => {
           setLogs((prev) => {
-            // Safety Check for live updates
             const safePrev = Array.isArray(prev) ? prev : [];
-            return [JSON.parse(message.body), ...safePrev].slice(0, 30);
+            return [JSON.parse(message.body), ...safePrev].slice(0, 50); // Keeps last 50 logs
           });
         });
       },
@@ -50,7 +53,7 @@ export default function AcousticHistory() {
     return () => client.deactivate();
   }, []);
 
-  // 5. Ensure logs is always treated as an array before manipulating it for the chart
+  // Format data for Recharts
   const safeLogs = Array.isArray(logs) ? logs : [];
   const chartData = [...safeLogs].reverse().map(log => ({
     time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -59,15 +62,25 @@ export default function AcousticHistory() {
   }));
 
   return (
-    // 6. Added min-h-[500px] to prevent the container from collapsing and triggering the Recharts warning
-    <div className="max-w-5xl w-full bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-8 shadow-sm flex flex-col min-h-[500px]">
-      <h2 className="text-lg font-semibold text-slate-700 mb-6">Acoustic Confidence Trend</h2>
+    <div className="flex flex-col gap-8 max-w-6xl w-full pb-10">
       
-      {/* Container MUST have a defined height for ResponsiveContainer to work */}
-      <div className="flex-1 w-full h-[400px]">
-        {safeLogs.length === 0 ? (
-           <div className="h-full flex items-center justify-center text-slate-400 italic font-medium">No historical data available.</div>
-        ) : (
+      {/* Dynamic Error Banner */}
+      {error && (
+        <div className="bg-rose-100 border border-rose-400 text-rose-700 px-6 py-4 rounded-2xl shadow-sm">
+            <p className="font-bold">Access Denied (403)</p>
+            <p className="text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* TOP SECTION: The Graphical Trend */}
+      <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-8 shadow-sm h-[450px] flex flex-col">
+        <h2 className="text-lg font-semibold text-slate-700 mb-6 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-emerald-500" />
+          Acoustic Confidence Trend
+        </h2>
+        
+        {/* The minHeight: 0 fixes the Recharts collapsing bug */}
+        <div className="flex-1 w-full" style={{ minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
@@ -77,16 +90,45 @@ export default function AcousticHistory() {
                 </linearGradient>
               </defs>
               <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} domain={``} unit="%" />
+              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
+              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
               <Area type="monotone" dataKey="confidence" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorConf)" activeDot={{ r: 8, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
-        )}
+        </div>
       </div>
+
+      {/* BOTTOM SECTION: The Raw Activity Log Table */}
+      <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-sm h-[400px] flex flex-col">
+        <h2 className="text-lg font-semibold text-slate-700 mb-4 px-2">Raw Activity Log</h2>
+        
+        {/* Table Headers */}
+        <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-slate-200/60 text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="col-span-2">Acoustic Event</div>
+          <div>Confidence</div>
+          <div>Timestamp</div>
+        </div>
+        
+        {/* Scrollable Log Area */}
+        <div className="overflow-y-auto flex-1 p-2 space-y-2 mt-2 pr-2">
+          {safeLogs.length === 0 && !error ? (
+            <div className="h-full flex items-center justify-center text-slate-400 italic font-medium">No historical data available.</div>
+          ) : (
+            safeLogs.map((log, idx) => (
+              <div key={idx} className="grid grid-cols-4 gap-4 px-4 py-4 bg-white/50 border border-white/80 rounded-xl items-center shadow-sm hover:shadow-md transition-all">
+                <div className="col-span-2 flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${log.aiResult.includes('Normal') ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                  <span className="font-semibold text-slate-700">{log.aiResult}</span>
+                </div>
+                <div className="text-sm font-bold text-slate-600">{(log.confidenceScore * 100).toFixed(1)}%</div>
+                <div className="text-sm font-mono text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -23,7 +23,7 @@ export default function Navbar() {
             <Activity className="text-emerald-500 w-5 h-5" />
           </div>
           <span className="text-xl font-light text-slate-800 tracking-widest">
-            Listen<span className="font-bold text-emerald-500">Node</span>
+            Roto<span className="font-bold text-emerald-500">Guard</span>
           </span>
         </Link>
 
