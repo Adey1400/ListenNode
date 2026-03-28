@@ -1,22 +1,22 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
-import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import Landing from "./pages/Landing"; // <-- Import Landing
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Register from "./pages/Register";
-import Architecture from "./pages/Architecture";
-import FAQ from "./pages/FAQ";
+// Public Pages
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Architecture from './pages/Architecture';
+import FAQ from './pages/FAQ';
 
-function App() {
+// Dashboard Pages (Nested)
+import DashboardLayout from './pages/Dashboard';
+import LiveFeed from './pages/LiveFeed';
+import AcousticHistory from './pages/AcousticHistory';
+import MachineConfig from './pages/MachineConfig';
+
+// Make sure the "export default" is right here!
+export default function App() {
   return (
     <AuthProvider>
       <Router>
@@ -28,38 +28,26 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
+          {/* Protected Dashboard Routes (Nested Layout) */}
+          <Route 
+            path="/dashboard" 
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
-
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          >
+            {/* If someone types /dashboard, redirect them to /dashboard/live */}
+            <Route index element={<Navigate to="live" replace />} />
+            
+            {/* The actual dashboard sub-pages */}
+            <Route path="live" element={<LiveFeed />} />
+            <Route path="history" element={<AcousticHistory />} />
+            <Route path="config" element={<MachineConfig />} />
+          </Route>
+          
         </Routes>
       </Router>
-
-      <ToastContainer
-        position="top-right"
-        autoClose={4000}
-        hideProgressBar={false}
-        newestOnTop={true}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-        toastClassName={() =>
-          "relative flex p-1 min-h-10 rounded-xl justify-between overflow-hidden cursor-pointer bg-white/60 backdrop-blur-xl border border-white/80 shadow-lg text-slate-800 mb-4"
-        }
-      />
     </AuthProvider>
   );
 }
-
-export default App;

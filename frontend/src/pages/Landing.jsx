@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer'; // <-- Added Footer import
 import { AuthContext } from '../context/AuthContext'; // <-- Added Context import
+import FAQ from './FAQ';
 
 export default function Landing() {
   // Pull the user from context to conditionally render the buttons
@@ -21,7 +22,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-slate-50 font-sans relative overflow-x-hidden flex flex-col">
       <Navbar />
 
       {/* Background Orbs */}
@@ -29,7 +30,7 @@ export default function Landing() {
       <motion.div animate={{ y:0, opacity: [0.2, 0.4, 0.2] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute bottom-0 right-0 w-[50rem] h-[50rem] bg-blue-200/40 rounded-full blur-[150px] -z-10" />
 
       {/* Hero Section */}
-      <main className="flex-1 pt-40 pb-20 px-6 max-w-7xl mx-auto z-10">
+      <main className="flex-1 pt-40 pb-20 px-6 max-w-7xl mx-auto z-10 w-full">
         <motion.div 
           variants={containerVariants} initial="hidden" animate="visible"
           className="text-center max-w-3xl mx-auto mb-24"
@@ -71,7 +72,7 @@ export default function Landing() {
         {/* Features Grid based on README */}
         <motion.div 
           initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24"
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-0"
         >
           {[
             { icon: Zap, title: "Sub-second Streaming", desc: "Instant visual alerts on the frontend the millisecond a fault is detected via WebSockets." },
@@ -90,7 +91,7 @@ export default function Landing() {
             </div>
           ))}
         </motion.div>
-
+       
       </main>
 
       {/* Added the beautiful footer to the bottom */}
