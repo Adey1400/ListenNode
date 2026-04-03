@@ -14,3 +14,5 @@ spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 application.security.jwt.secret-key=
+rotoguard.ai.enabled=false
+rotoguard.ai.url=

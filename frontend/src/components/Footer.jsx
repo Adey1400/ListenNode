@@ -28,7 +28,7 @@ export default function Footer() {
                 <Activity className="text-emerald-500 w-5 h-5" />
               </div>
               <span className="text-xl font-light text-slate-800 tracking-widest">
-                Listen<span className="font-bold text-emerald-500">Node</span>
+                Roto<span className="font-bold text-emerald-500">Guard</span>
               </span>
             </Link>
             <p className="text-slate-500 text-sm leading-relaxed max-w-sm">
@@ -62,7 +62,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-white/60 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-slate-400 text-sm">
-            © {new Date().getFullYear()} ListenNode. Built for the Hackathon.
+            © {new Date().getFullYear()} RotoGuard. Built for the Hackathon.
           </p>
           <div className="flex items-center gap-4">
             <a href="https://github.com/Adey1400/listennode" target="_blank" rel="noreferrer" className="w-10 h-10 bg-white/50 border border-white/80 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-white/80 transition-all shadow-sm">

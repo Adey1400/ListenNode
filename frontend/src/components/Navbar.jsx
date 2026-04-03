@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Activity, LogOut, LayoutDashboard } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -16,8 +15,6 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 px-6 py-4">
       <div className="max-w-7xl mx-auto bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl shadow-sm flex items-center justify-between px-6 py-3">
-        
-        
         <Link to="/" className="flex items-center gap-2 group">
           <div className="bg-white/60 p-2 rounded-xl border border-white/80 shadow-sm group-hover:shadow-emerald-500/20 transition-all">
             <Activity className="text-emerald-500 w-5 h-5" />
