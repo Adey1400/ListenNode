@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -35,8 +36,9 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/error","/ws/**", "/index.html","/").permitAll()
-                .anyRequest().authenticated() 
+                .requestMatchers("/api/auth/**", "/error", "/ws/**", "/index.html", "/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/machines/*/ai-result").permitAll()
+                .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider)

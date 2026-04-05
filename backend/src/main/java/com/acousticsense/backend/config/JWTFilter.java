@@ -20,9 +20,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JWTFilter extends OncePerRequestFilter{
   private final JWTService jwtService;
   private final UserDetailsService userDetailsService;
@@ -33,46 +35,63 @@ public class JWTFilter extends OncePerRequestFilter{
     @NonNull HttpServletResponse response,
     @NonNull FilterChain filterChain
   )throws ServletException , IOException{
-    final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+    String authHeader = request.getHeader("Authorization");
+    String jwt = null;
+    String userEmail = null;
 
+    // Priority 1: Check Authorization header (traditional HTTP header)
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
         jwt = authHeader.substring(7);
+    }
+
+    // Priority 2: Check query parameter (for EventSource/SSE which can't set headers)
+    if (jwt == null) {
+        String tokenParam = request.getParameter("token");
+        if (tokenParam != null && !tokenParam.isEmpty()) {
+            jwt = tokenParam;
+            log.debug("JWT token found in query parameter for SSE stream");
+        }
+    }
+
+    // If no token found, continue filter chain
+    if (jwt == null) {
+        filterChain.doFilter(request, response);
+        return;
+    }
+
+    try {
+        userEmail = jwtService.extractUsername(jwt);
+    } catch (Exception e) {
+        log.debug("Failed to extract username from JWT: {}", e.getMessage());
+        filterChain.doFilter(request, response);
+        return;
+    }
+
+    if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
         try {
-            userEmail = jwtService.extractUsername(jwt);
-        } catch (Exception e) {
-            filterChain.doFilter(request, response);
-            return;
+             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+        if (jwtService.isTokenValid(jwt, userDetails)) {
+
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    userDetails,
+                    null,
+                    userDetails.getAuthorities()
+            );
+
+            authToken.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+            );
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+            log.debug("JWT authenticated user: {}", userEmail);
         }
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            if (jwtService.isTokenValid(jwt, userDetails)) { 
-                
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
-                
-            } catch (Exception e) {
-       
-            System.out.println("Cannot set user authentication: " + e.getMessage());
-            }
+        } catch (Exception e) {
+
+        log.debug("Cannot set user authentication: " + e.getMessage());
         }
-        
-        filterChain.doFilter(request, response);
+    }
+
+    filterChain.doFilter(request, response);
   }
 }

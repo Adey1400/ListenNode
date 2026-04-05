@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
 import { Activity } from 'lucide-react';
 
 export default function AcousticHistory() {
@@ -12,10 +10,10 @@ export default function AcousticHistory() {
   useEffect(() => {
     // Keep this aligned with AuthContext token key
     const token = localStorage.getItem('listenNode_token') || localStorage.getItem('token');
-    
+
     if (!token) {
-        setError("No authentication token found. Please log in again.");
-        return;
+      setError("No authentication token found. Please log in again.");
+      return;
     }
 
     // Fetch the history with the JWT Token
@@ -36,21 +34,28 @@ export default function AcousticHistory() {
       })
       .catch(err => setError(err.message));
 
-    // Connect WebSocket for Live Updates
-    const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws/machine-status'),
-      onConnect: () => {
-        client.subscribe(`/topic/machine-alerts/${machineId}`, (message) => {
-          setLogs((prev) => {
-            const safePrev = Array.isArray(prev) ? prev : [];
-            return [JSON.parse(message.body), ...safePrev].slice(0, 50); // Keeps last 50 logs
-          });
+    // Connect EventSource for Live Updates
+    const eventSourceUrl = `http://localhost:8080/api/machines/${machineId}/stream?token=${encodeURIComponent(token)}`;
+    const eventSource = new EventSource(eventSourceUrl);
+
+    eventSource.addEventListener('machine-alert', (event) => {
+      try {
+        const newLog = JSON.parse(event.data);
+        setLogs((prev) => {
+          const safePrev = Array.isArray(prev) ? prev : [];
+          return [newLog, ...safePrev].slice(0, 50); // Keeps last 50 logs
         });
-      },
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+      }
     });
-    
-    client.activate();
-    return () => client.deactivate();
+
+    eventSource.addEventListener('error', () => {
+      console.error('EventSource error for Machine', machineId);
+      eventSource.close();
+    });
+
+    return () => eventSource.close();
   }, []);
 
   // Format data for Recharts
@@ -63,12 +68,12 @@ export default function AcousticHistory() {
 
   return (
     <div className="flex flex-col gap-8 max-w-6xl w-full pb-10">
-      
+
       {/* Dynamic Error Banner */}
       {error && (
         <div className="bg-rose-100 border border-rose-400 text-rose-700 px-6 py-4 rounded-2xl shadow-sm">
-            <p className="font-bold">Access Denied (403)</p>
-            <p className="text-sm">{error}</p>
+          <p className="font-bold">Access Denied (403)</p>
+          <p className="text-sm">{error}</p>
         </div>
       )}
 
@@ -78,7 +83,7 @@ export default function AcousticHistory() {
           <Activity className="w-5 h-5 text-emerald-500" />
           Acoustic Confidence Trend
         </h2>
-        
+
         {/* The minHeight: 0 fixes the Recharts collapsing bug */}
         <div className="flex-1 w-full" style={{ minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -102,14 +107,14 @@ export default function AcousticHistory() {
       {/* BOTTOM SECTION: The Raw Activity Log Table */}
       <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-sm h-[400px] flex flex-col">
         <h2 className="text-lg font-semibold text-slate-700 mb-4 px-2">Raw Activity Log</h2>
-        
+
         {/* Table Headers */}
         <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-slate-200/60 text-xs font-bold text-slate-400 uppercase tracking-wider">
           <div className="col-span-2">Acoustic Event</div>
           <div>Confidence</div>
           <div>Timestamp</div>
         </div>
-        
+
         {/* Scrollable Log Area */}
         <div className="overflow-y-auto flex-1 p-2 space-y-2 mt-2 pr-2">
           {safeLogs.length === 0 && !error ? (
