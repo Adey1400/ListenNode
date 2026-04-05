@@ -12,9 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap; 
 
 @RestController
 @RequestMapping("/api/machines")
@@ -25,6 +27,9 @@ public class MachineController {
     private final MachineRepo machineRepo;
     private final MachineLogRepo machineLogRepo;
     private final SseService sseService;
+
+    // THE TRACKER: Required for the Smart Throttle to remember machine timings
+    private final Map<Long, LocalDateTime> lastNormalSaveTime = new ConcurrentHashMap<>();
 
     @PostMapping
     public Machine createMachine(@RequestBody Machine machine) {
@@ -76,6 +81,7 @@ public class MachineController {
             // Extract and validate inference data
             Object statusObj = payload.get("status");
             Object confidenceObj = payload.get("confidence");
+            Object healthObj = payload.get("healthPercentage"); // <-- ADDED: Extract health
 
             if (statusObj == null || confidenceObj == null) {
                 log.warn("Missing required fields in AI result for Machine {}. Payload: {}", id, payload.keySet());
@@ -100,6 +106,16 @@ public class MachineController {
                 ));
             }
 
+            // <-- ADDED: Parse the health percentage (Default to 100.0 if missing/invalid)
+            Double healthPercentage = 100.0;
+            if (healthObj != null) {
+                try {
+                    healthPercentage = Double.parseDouble(healthObj.toString());
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid health percentage for Machine {}: {}", id, healthObj);
+                }
+            }
+
             // Fetch the machine
             Machine machine = machineRepo.findById(id)
                     .orElseThrow(() -> {
@@ -107,24 +123,48 @@ public class MachineController {
                         return new RuntimeException("Machine not found");
                     });
 
-            // Create and save the log entry
+            // Creating the log entry
             MachineLog logEntry = MachineLog.builder()
                     .machine(machine)
                     .timestamp(LocalDateTime.now())
                     .aiResult(aiStatus)
                     .confidenceScore(confidence)
+                    .healthPercentage(healthPercentage) // NOW THIS WORKS!
                     .build();
+          
+            // ==========================================
+            // Smart Throttle Logic (60 sec rule)
+            // ==========================================
+            boolean isAnomaly = !aiStatus.toLowerCase().contains("normal");
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime lastSave = lastNormalSaveTime.getOrDefault(id, LocalDateTime.MIN);
+            
+            // Saving if it's an anomaly, OR if it has been 60+ seconds since the last Normal save
+            boolean shouldSaveToDb = isAnomaly || Duration.between(lastSave, now).getSeconds() >= 60;
+            
+            // Declare broadcastLog so we have something to send to React regardless of saving
+            MachineLog broadcastLog = logEntry; 
 
-            MachineLog savedLog = machineLogRepo.save(logEntry);
-            log.info("AI result received for Machine {}: {} (confidence: {})", id, aiStatus, confidence);
+            if (shouldSaveToDb) {
+                // Actually save to PostgreSQL and update the broadcastLog with the saved ID
+                broadcastLog = machineLogRepo.save(logEntry);
+                
+                // If it was a Normal reading, reset the timer for this machine
+                if (!isAnomaly) {
+                    lastNormalSaveTime.put(id, now);
+                }
+                log.info("SAVED TO DB: Machine {}: {} (confidence: {})", id, aiStatus, confidence);
+            } else {
+                log.debug("THROTTLED (Not Saved): Machine {}: {} (confidence: {})", id, aiStatus, confidence);
+            }
 
-            // Broadcast to all connected SSE clients
-            sseService.sendAlert(id, savedLog);
+            // ALWAYS Broadcast to React via SSE (Even if we throttled the database save!)
+            sseService.sendAlert(id, broadcastLog);
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "AI result processed and delivered to clients",
-                "logId", savedLog.getId()
+                "savedToDb", shouldSaveToDb,
+                "message", shouldSaveToDb ? "AI result processed and saved to DB" : "AI result processed and throttled"
             ));
 
         } catch (RuntimeException e) {

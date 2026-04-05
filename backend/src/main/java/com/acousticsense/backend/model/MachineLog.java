@@ -31,6 +31,6 @@ public class MachineLog {
     private String aiResult; // "Normal", "Rattle", "Grinding", etc.
     
     private Double confidenceScore; // 0.0 to 1.0 from the AI model
-
+    private Double healthPercentage;
     private LocalDateTime timestamp;
 }
