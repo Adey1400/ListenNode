@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api/machines")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 @Slf4j
 public class MachineController {
 
@@ -57,6 +58,29 @@ public class MachineController {
         log.info("New SSE client connected for Machine {}", id);
         return sseService.subscribe(id);
     }
+    //Learn Bridge
+    @PostMapping("/{id}/learn")
+    public ResponseEntity<?> triggerLearnMode(@PathVariable Long id) {
+        log.info("React requested Learn Mode for Machine {}", id);
+        
+        try {
+            // NOTE: Ask your senior for HIS IP address or Ngrok URL where his Python script is listening!
+            String seniorPythonUrl = "http://192.168.0.176:80/startButton" + id;
+            
+            // We use RestTemplate to shoot the empty JSON object to his laptop
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            
+            // Sending the empty object {}
+            restTemplate.postForEntity(seniorPythonUrl, Map.of(), String.class);
+            
+            log.info("Successfully sent Learn trigger to Python script for Machine {}", id);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Learn mode initiated for 60s"));
+            
+        } catch (Exception e) {
+            log.error("Failed to reach Python script for Learn Mode: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", "Could not reach AI microservice"));
+        }
+    }
 
     /**
      * Webhook endpoint for receiving AI inference results from Python microservice.
@@ -82,6 +106,8 @@ public class MachineController {
             Object statusObj = payload.get("status");
             Object confidenceObj = payload.get("confidence");
             Object healthObj = payload.get("healthPercentage"); // <-- ADDED: Extract health
+            Object temperatureObj = payload.get("temperature"); // Extract temperature
+            Object vibrationObj = payload.get("vibration"); // Extract vibration
 
             if (statusObj == null || confidenceObj == null) {
                 log.warn("Missing required fields in AI result for Machine {}. Payload: {}", id, payload.keySet());
@@ -113,6 +139,26 @@ public class MachineController {
                     healthPercentage = Double.parseDouble(healthObj.toString());
                 } catch (NumberFormatException e) {
                     log.warn("Invalid health percentage for Machine {}: {}", id, healthObj);
+                }
+            }
+            
+            // Parse temperature (optional, defaults to null if missing/invalid)
+            Double temperature = null;
+            if (temperatureObj != null) {
+                try {
+                    temperature = Double.parseDouble(temperatureObj.toString());
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid temperature for Machine {}: {}", id, temperatureObj);
+                }
+            }
+            
+            // Parse vibration (optional, defaults to null if missing/invalid)
+            Double vibration = null;
+            if (vibrationObj != null) {
+                try {
+                    vibration = Double.parseDouble(vibrationObj.toString());
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid vibration for Machine {}: {}", id, vibrationObj);
                 }
             }
 
@@ -158,13 +204,21 @@ public class MachineController {
                 log.debug("THROTTLED (Not Saved): Machine {}: {} (confidence: {})", id, aiStatus, confidence);
             }
 
+            // Set temperature and vibration on the broadcast log (NOT saved to DB)
+            broadcastLog.setTemperature(temperature);
+            broadcastLog.setVibration(vibration);
+            
             // ALWAYS Broadcast to React via SSE (Even if we throttled the database save!)
             sseService.sendAlert(id, broadcastLog);
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "savedToDb", shouldSaveToDb,
-                "message", shouldSaveToDb ? "AI result processed and saved to DB" : "AI result processed and throttled"
+                "message", shouldSaveToDb ? "AI result processed and saved to DB" : "AI result processed and throttled",
+                "broadcast", Map.of(
+                    "temperature", temperature,
+                    "vibration", vibration
+                )
             ));
 
         } catch (RuntimeException e) {

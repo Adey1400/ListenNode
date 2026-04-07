@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Activity } from 'lucide-react';
 
 export default function AcousticHistory() {
   const [logs, setLogs] = useState([]);
-  const [error, setError] = useState(null); // Added to show you exact security errors
-  const machineId = 1;
+  const [error, setError] = useState(null);
+  const [selectedMachine, setSelectedMachine] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Keep this aligned with AuthContext token key
     const token = localStorage.getItem('listenNode_token') || localStorage.getItem('token');
 
     if (!token) {
@@ -16,8 +16,10 @@ export default function AcousticHistory() {
       return;
     }
 
-    // Fetch the history with the JWT Token
-    fetch(`http://localhost:8080/api/machines/${machineId}/logs`, {
+    setIsLoading(true);
+
+    // Fetch the history for the selected machine
+    fetch(`http://localhost:8080/api/machines/${selectedMachine}/logs`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -31,11 +33,13 @@ export default function AcousticHistory() {
       })
       .then(data => {
         if (Array.isArray(data)) setLogs(data);
+        setError(null);
       })
-      .catch(err => setError(err.message));
+      .catch(err => setError(err.message))
+      .finally(() => setIsLoading(false));
 
     // Connect EventSource for Live Updates
-    const eventSourceUrl = `http://localhost:8080/api/machines/${machineId}/stream?token=${encodeURIComponent(token)}`;
+    const eventSourceUrl = `http://localhost:8080/api/machines/${selectedMachine}/stream?token=${encodeURIComponent(token)}`;
     const eventSource = new EventSource(eventSourceUrl);
 
     eventSource.addEventListener('machine-alert', (event) => {
@@ -51,23 +55,49 @@ export default function AcousticHistory() {
     });
 
     eventSource.addEventListener('error', () => {
-      console.error('EventSource error for Machine', machineId);
+      console.error('EventSource error for Machine', selectedMachine);
       eventSource.close();
     });
 
     return () => eventSource.close();
-  }, []);
+  }, [selectedMachine]);
 
   // Format data for Recharts
   const safeLogs = Array.isArray(logs) ? logs : [];
   const chartData = [...safeLogs].reverse().map(log => ({
     time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    healthPercentage: log.healthPercentage || 0,
     confidence: parseFloat((log.confidenceScore * 100).toFixed(1)),
     status: log.aiResult
   }));
 
   return (
     <div className="flex flex-col gap-8 max-w-6xl w-full pb-10">
+
+      {/* Machine Selector */}
+      <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <label htmlFor="machine-select" className="text-sm font-semibold text-slate-700">
+            Select Machine:
+          </label>
+          <select
+            id="machine-select"
+            value={selectedMachine}
+            onChange={(e) => setSelectedMachine(parseInt(e.target.value, 10))}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-lg bg-white/60 border border-slate-300 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {[1, 2, 3, 4, 5, 6].map((machineId) => (
+              <option key={machineId} value={machineId}>
+                Machine {machineId}
+              </option>
+            ))}
+          </select>
+          {isLoading && (
+            <span className="text-xs font-medium text-slate-600 italic">Loading...</span>
+          )}
+        </div>
+      </div>
 
       {/* Dynamic Error Banner */}
       {error && (
@@ -81,7 +111,7 @@ export default function AcousticHistory() {
       <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-8 shadow-sm h-[450px] flex flex-col">
         <h2 className="text-lg font-semibold text-slate-700 mb-6 flex items-center gap-2">
           <Activity className="w-5 h-5 text-emerald-500" />
-          Acoustic Confidence Trend
+          Machine Health Percentage - Machine {selectedMachine}
         </h2>
 
         {/* The minHeight: 0 fixes the Recharts collapsing bug */}
@@ -89,16 +119,41 @@ export default function AcousticHistory() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorConf" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorHealth" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.5}/>
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
+              <YAxis 
+                stroke="#94a3b8" 
+                fontSize={12} 
+                tickLine={false} 
+                axisLine={false} 
+                domain={[0, 100]} 
+                tickFormatter={(value) => `${value}%`}
+              />
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-              <Area type="monotone" dataKey="confidence" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorConf)" activeDot={{ r: 8, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} />
+              <Tooltip 
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                formatter={(value) => `${value}%`}
+                labelFormatter={() => 'Health'}
+              />
+              <ReferenceLine 
+                y={40} 
+                stroke="#f43f5e" 
+                strokeDasharray="5 5" 
+                label={{ value: 'Critical Threshold', position: 'right', fill: '#f43f5e', fontSize: 12, fontWeight: 500 }} 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="healthPercentage" 
+                stroke="#10b981" 
+                strokeWidth={4} 
+                fillOpacity={1} 
+                fill="url(#colorHealth)" 
+                activeDot={{ r: 8, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} 
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

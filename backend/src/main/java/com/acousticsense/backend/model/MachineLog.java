@@ -33,4 +33,11 @@ public class MachineLog {
     private Double confidenceScore; // 0.0 to 1.0 from the AI model
     private Double healthPercentage;
     private LocalDateTime timestamp;
+    
+    // Real-time metrics (NOT saved to database)
+    @Transient
+    private Double temperature; // Temperature in Celsius
+    
+    @Transient
+    private Double vibration; // Vibration level (0.0 to 1.0 or units from sensor)
 }
